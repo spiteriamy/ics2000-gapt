@@ -3,6 +3,7 @@ from tkinter import Button, filedialog
 from PIL import Image, ImageTk
 import cv2
 import numpy as np
+from deepface import DeepFace
 
 class WebcamApp:
     def __init__(self, window, window_title):
@@ -150,10 +151,23 @@ class WebcamApp:
             self.canvas.create_image(0, 0, image=self.uploaded_photo, anchor=tk.NW)
 
     def detect_face(self, frame):
+        # gray_image = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        # faces = self.face_classifier.detectMultiScale(gray_image, 1.1, 5, minSize=(40, 40))
+        # for (x, y, w, h) in faces:
+        #     cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
+        # return faces
+    
         gray_image = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         faces = self.face_classifier.detectMultiScale(gray_image, 1.1, 5, minSize=(40, 40))
         for (x, y, w, h) in faces:
-            cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
+            image = cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
+            try:
+                # analyze emotion and display
+                analyze = DeepFace.analyze(frame, actions=['emotion'], detector_backend='skip')
+                cv2.putText(image, analyze[0]["dominant_emotion"], (x, y-10), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+                print(analyze[0]["dominant_emotion"])
+            except Exception as e:
+                print(f'Error: {e}')
         return faces
 
     def __del__(self):
