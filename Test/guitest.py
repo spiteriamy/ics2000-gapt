@@ -4,6 +4,7 @@ from PIL import Image, ImageTk
 import cv2
 import numpy as np
 from deepface import DeepFace
+import dlib
 
 class WebcamApp:
     def __init__(self, window, window_title):
@@ -18,6 +19,10 @@ class WebcamApp:
             cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
         )
 
+        # loading dlib's landmark detector
+        self.predictor_path = "shape_predictor_68_face_landmarks.dat"
+        self.predictor = dlib.shape_predictor(self.predictor_path)
+
         # canvas to display the webcam feed
         self.canvas = tk.Canvas(window, width=640, height=480)
         self.canvas.pack()
@@ -25,7 +30,7 @@ class WebcamApp:
         # Button to start/stop the webcam
         self.btn_toggle = Button(window, text="Start Camera", width=15, command=self.toggle_camera)
         self.btn_toggle.pack(pady=10)
-        self.camera_on = False # track if cam is on or off
+        self.camera_on = False  # track if cam is on or off
 
         # Button to upload an image
         self.btn_upload = Button(window, text="Upload Image", width=15, command=self.upload_image)
@@ -34,7 +39,7 @@ class WebcamApp:
         # default black background for when cam is off
         blank_image = Image.new("RGB", (640, 480), (0, 0, 0))
         self.blank_photo = ImageTk.PhotoImage(image=blank_image)
-        self.canvas.create_image(0, 0, image=self.blank_photo, anchor=tk.NW) # display
+        self.canvas.create_image(0, 0, image=self.blank_photo, anchor=tk.NW)  # display
 
         # Start the GUI event loop
         self.window.mainloop()
@@ -49,7 +54,7 @@ class WebcamApp:
                 self.cap = None
 
             # Clear the canvas to remove the cam image
-            self.canvas.delete("all") 
+            self.canvas.delete("all")
             self.canvas.create_image(0, 0, image=self.blank_photo, anchor=tk.NW)
         else:
             # Start the camera
@@ -68,7 +73,7 @@ class WebcamApp:
                 flipped_frame = cv2.flip(frame, 1)
 
                 # apply bounding box to the video frame
-                faces = self.detect_face(flipped_frame)  
+                faces = self.detect_face(flipped_frame)
 
                 # Convert the frame from BGR to RGB
                 flipped_frame = cv2.cvtColor(flipped_frame, cv2.COLOR_BGR2RGB)
@@ -107,7 +112,7 @@ class WebcamApp:
             np_image = cv2.cvtColor(np_image, cv2.COLOR_RGB2BGR)
 
             # apply bounding box to image
-            faces = self.detect_face(np_image) 
+            faces = self.detect_face(np_image)
 
             # Convert the frame from BGR to RGB
             np_image = cv2.cvtColor(np_image, cv2.COLOR_BGR2RGB)
@@ -130,7 +135,7 @@ class WebcamApp:
                 # Image is taller than the target size
                 new_height = target_height
                 new_width = int(target_height * original_aspect_ratio)
-            
+
             pil_image = pil_image.resize((new_width, new_height), Image.Resampling.LANCZOS)
 
             # Create a new image with the target size and black background
@@ -156,19 +161,38 @@ class WebcamApp:
         # for (x, y, w, h) in faces:
         #     cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
         # return faces
-    
+
         gray_image = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         faces = self.face_classifier.detectMultiScale(gray_image, 1.1, 5, minSize=(40, 40))
+
         for (x, y, w, h) in faces:
             image = cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
+
+            # Convert the bounding box to dlib rectangle
+            face = dlib.rectangle(x, y, x + w, y + h)
+
+            # Detect landmarks
+            landmarks = self.predictor(gray_image, face)
+
+            # Draw landmarks on the face
+            self.draw_landmarks(frame, landmarks)
+
             try:
                 # analyze emotion and display
                 analyze = DeepFace.analyze(frame, actions=['emotion'], detector_backend='skip')
-                cv2.putText(image, analyze[0]["dominant_emotion"], (x, y-10), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+                cv2.putText(image, analyze[0]["dominant_emotion"], (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 1,
+                            (0, 255, 0), 2)
                 print(analyze[0]["dominant_emotion"])
             except Exception as e:
                 print(f'Error: {e}')
         return faces
+
+    def draw_landmarks(self, frame, landmarks):
+        # Loop through all 68 landmarks and draw them on the frame
+        for i in range(68):
+            x_landmark = landmarks.part(i).x
+            y_landmark = landmarks.part(i).y
+            cv2.circle(frame, (x_landmark, y_landmark), 1, (0, 0, 255), -1)  # Red color for landmarks
 
     def __del__(self):
         if self.cap:
