@@ -1,6 +1,8 @@
 import cv2
 import dlib
+import numpy as np
 from deepface import DeepFace
+from keras import models
 
 # load pre-trained model for landmark detection (dlib's 68-point landmark model)
 predictor_path = "shape_predictor_68_face_landmarks.dat"
@@ -12,6 +14,11 @@ predictor = dlib.shape_predictor(predictor_path)
 face_classifier = cv2.CascadeClassifier(
     cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
 )
+
+# load emotion classifier model
+# emotion_classifier = models.load_model('emotion_model.h5')
+emotion_classifier = models.load_model('emotion_model.keras')
+emotions = ["angry", "disgust", "fear", "happy", "neutral", "sad", "surprise"]
 
 
 # detect the faces in front of the camera
@@ -33,12 +40,20 @@ def detect_bounding_box(vid):
         draw_landmarks(vid, landmarks)
 
         # Analyze emotion and display it
-        try:
-            analyze = DeepFace.analyze(vid, actions=['emotion'], detector_backend='skip')
-            cv2.putText(image, analyze[0]["dominant_emotion"], (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
-            print(analyze[0]["dominant_emotion"])
-        except Exception as e:
-            print(f'Error: {e}')
+
+        # using deepface library:
+        # try:
+        #     analyze = DeepFace.analyze(vid, actions=['emotion'], detector_backend='skip')
+        #     cv2.putText(image, analyze[0]["dominant_emotion"], (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+        #     print(analyze[0]["dominant_emotion"])
+        # except Exception as e:
+        #     print(f'Error: {e}')
+
+        # analyzing emotion with new model
+        face = cv2.resize(gray_image, (48, 48)).reshape(1, 48, 48, 1) / 255.0
+        prediction = emotion_classifier.predict(face)
+        emotion = emotions[np.argmax(prediction)]
+        cv2.putText(vid, emotion, (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
 
     return faces
 

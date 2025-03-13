@@ -11,3 +11,9 @@ tf-keras
 cmake
 
 dlib
+
+tensorflow
+
+scikit-learn
+
+keras

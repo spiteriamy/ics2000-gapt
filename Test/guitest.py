@@ -5,6 +5,7 @@ import cv2
 import numpy as np
 from deepface import DeepFace
 import dlib
+from keras import models
 
 class WebcamApp:
     def __init__(self, window, window_title):
@@ -22,6 +23,10 @@ class WebcamApp:
         # loading dlib's landmark detector
         self.predictor_path = "shape_predictor_68_face_landmarks.dat"
         self.predictor = dlib.shape_predictor(self.predictor_path)
+
+        # load emotion classifier model
+        self.emotion_classifier = models.load_model('emotion_model.keras')
+        self.emotions = ["angry", "disgust", "fear", "happy", "neutral", "sad", "surprise"]
 
         # canvas to display the webcam feed
         self.canvas = tk.Canvas(window, width=640, height=480)
@@ -177,14 +182,23 @@ class WebcamApp:
             # Draw landmarks on the face
             self.draw_landmarks(frame, landmarks)
 
-            try:
-                # analyze emotion and display
-                analyze = DeepFace.analyze(frame, actions=['emotion'], detector_backend='skip')
-                cv2.putText(image, analyze[0]["dominant_emotion"], (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 1,
-                            (0, 255, 0), 2)
-                print(analyze[0]["dominant_emotion"])
-            except Exception as e:
-                print(f'Error: {e}')
+            # Analyze emotion and display it
+
+            # using deepface library:
+            # try:
+            #     analyze = DeepFace.analyze(frame, actions=['emotion'], detector_backend='skip')
+            #     cv2.putText(image, analyze[0]["dominant_emotion"], (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 1,
+            #                 (0, 255, 0), 2)
+            #     print(analyze[0]["dominant_emotion"])
+            # except Exception as e:
+            #     print(f'Error: {e}')
+
+            # analyzing emotion with new model
+            face = cv2.resize(gray_image, (48, 48)).reshape(1, 48, 48, 1) / 255.0
+            prediction = self.emotion_classifier.predict(face)
+            emotion = self.emotions[np.argmax(prediction)]
+            cv2.putText(frame, emotion, (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+            
         return faces
 
     def draw_landmarks(self, frame, landmarks):
