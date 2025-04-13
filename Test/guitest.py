@@ -12,7 +12,7 @@ class WebcamApp:
         self.window.title(window_title)
 
         # OpenCV video capture
-        self.cap = None
+        self.cap = cv2.VideoCapture(1) # Use 0 for the default camera, 1 for an external camera
 
         # loading haar cascade classifier
         self.face_classifier = cv2.CascadeClassifier(
