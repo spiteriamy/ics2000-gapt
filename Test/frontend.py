@@ -4,14 +4,17 @@ import cv2
 from PIL import Image, ImageTk
 import dlib
 import numpy as np
-from deepface import DeepFace
+# from deepface import DeepFace
 import os
 import glob
 import time
 import threading
+from keras import models
 
 face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_frontalface_default.xml")
 predictor = dlib.shape_predictor("shape_predictor_68_face_landmarks.dat")
+emotion_classifier = models.load_model('emotion_model.keras')
+emotion_classes = ["angry", "disgust", "fear", "happy", "neutral", "sad", "surprise"]
 
 class SnapCam:
     def __init__(self, root):
@@ -89,13 +92,23 @@ class SnapCam:
 
     def analyze_emotion_async(self, frame):
         def analyze():
+            # try:
+            #     result = DeepFace.analyze(frame, actions=['emotion'], detector_backend='skip')[0]
+            #     with self.emotion_lock:
+            #         self.last_emotion = result['dominant_emotion'].lower()
+            #         self.last_emotion_time = time.time()
+            # except:
+            #     pass
             try:
-                result = DeepFace.analyze(frame, actions=['emotion'], detector_backend='skip')[0]
+                gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+                gray_resized = cv2.resize(gray, (48, 48)).reshape(1, 48, 48, 1) / 255.0
+                result = emotion_classifier.predict(gray_resized)
+                predicted_emotion = emotion_classes[np.argmax(result)]
                 with self.emotion_lock:
-                    self.last_emotion = result['dominant_emotion'].lower()
+                    self.last_emotion = predicted_emotion.lower()
                     self.last_emotion_time = time.time()
-            except:
-                pass
+            except Exception as e:
+                print(f'Failed to analyze emotion: {e}')
         threading.Thread(target=analyze, daemon=True).start()
 
     def update(self):
